@@ -1,6 +1,6 @@
 var shell = require('shelljs');
 var client = require('./client');
-var logger = require('./logger');
+var logger = require('./logger')();
 
 var fs = require('fs');
 var parseIni = require('ini').stringify;
@@ -83,6 +83,7 @@ function deployGit(git) {
 }
 
 module.exports = (config) => {
+    logger = require('./logger')(config.LOGFILE);
     co(function* () {
         var docNames = config.WATCH
         for (var doc of docNames) {
