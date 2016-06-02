@@ -11,7 +11,7 @@ var r = require('superagent');
 var tree = require('./tree');
 
 
-function *taskRunner(doc) {
+function taskRunner(doc) {
     var content = '';
     switch (doc.type) {
         case 'json':
@@ -33,6 +33,12 @@ function *taskRunner(doc) {
     }
 }
 
+function deployGit(git) {
+    var currCommit = shell
+        .cd(git.path)
+        .exec('git rev-parse HEAD').stdout;
+}
+
 module.exports = (config) => {
     co(function* () {
         var docNames = config.WATCH
@@ -44,7 +50,7 @@ module.exports = (config) => {
                 var body = res.body;
                 if (body.data) {
                     var data = body.data[0];
-                    yield taskRunner(data);
+                    taskRunner(data);
                 }
             } catch (e) {
                 if (!(e && e.response && e.response.status === 404)) {
@@ -62,10 +68,14 @@ module.exports = (config) => {
         });
         client.on('change', doc => {
             logger.info('Received ' + doc.name);
-            taskRunner(doc);
+            taskRunner(doc)
         });
+        client.on('deploy', git => {
+            logger.info('Deploy ' + git.name);
+            deployGit(git);
+        })
 
-        client.init(config.URL, config.WATCH);
+        client.init(config.URL, config.WATCH, config.DEPLOY);
     })
     .catch(err => {
         logger.error(err);

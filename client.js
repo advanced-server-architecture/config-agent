@@ -7,7 +7,7 @@ var emitter = new EventEmitter();
 
 
 
-emitter.init = (url, channels) => {
+emitter.init = (url, channels, repos) => {
 
     var client = io(url);
 
@@ -16,6 +16,9 @@ emitter.init = (url, channels) => {
         for (var channel of channels) {
             client.emit('watch', channel);
         }
+        for (var repo of repos) {
+            client.emit('watch', 'repo:' + repo);
+        }
     });
 
     client.on('disconnect', e => emitter.emit('closed'));
@@ -23,7 +26,12 @@ emitter.init = (url, channels) => {
 
     client.on('change', doc => {
         emitter.emit('change', doc);
+    });
+
+    client.on('deploy', git => {
+        emitter.emit('deploy', git);
     })
+
 }
 
 module.exports = emitter;

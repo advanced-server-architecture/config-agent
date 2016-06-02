@@ -1,0 +1,4 @@
+apps:
+  - name: Agent
+    script: index.js
+    args: -c config.js
