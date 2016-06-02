@@ -52,12 +52,12 @@ function taskRunner(doc, flag) {
         logger.error(e);
         e.stack && logger.error(e.stack);
         return;
-    }
+    ``}
     logger.info('Config:' + doc.name + ' updated');
 }
 
 function deployGit(git) {
-
+    if (!git) return;
     var path = git.path + '/' + git.repo.split('/')[1];
     if (shell.cd(path).stderr) {
         shell.exec(`mkdir -p ${path}`);
