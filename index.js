@@ -51,6 +51,7 @@ if (configFile) {
         file.substr(0, 2) !== './') {
         file = './' + file;
     }
+    file = process.cwd() + '/' + file;
     config = require(file);
 }
 
