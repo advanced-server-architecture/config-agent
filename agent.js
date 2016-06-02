@@ -34,9 +34,33 @@ function taskRunner(doc) {
 }
 
 function deployGit(git) {
+    var path = git.path + '/' + git.repo.split('/')[1];
+    if (shell.cd(path).stderr) {
+        shell.exec(`mkdir -p ${path}`);
+    }
     var currCommit = shell
-        .cd(git.path)
+        .cd(path)
         .exec('git rev-parse HEAD').stdout;
+    if (!currCommit) {
+        shell
+            .cd(git.path)
+            .exec(`git clone https://${git.username}:${git.accessToken}@github.com/${git.repo}`);
+        currCommit = shell
+            .cd(git.path + '/' + git.repo)
+            .exec('git rev-parse HEAD').stdout;
+    }
+    if (currCommit !== git.deployedCommit) {
+        shell
+            .cd(path)
+            .exec(`git checkout ${git.deployedCommit}`);
+    }
+    if (git.command) {
+        var curr = shell.cd(path);
+        var commands = git.command.split('\n');
+        for (var command of commands) {
+            curr.exec(command);
+        }
+    }
 }
 
 module.exports = (config) => {
@@ -51,6 +75,23 @@ module.exports = (config) => {
                 if (body.data) {
                     var data = body.data[0];
                     taskRunner(data);
+                }
+            } catch (e) {
+                if (!(e && e.response && e.response.status === 404)) {
+                    throw e;
+                }
+            }
+        }
+        var repos = config.DEPLOY; 
+        for (var repo of repos) {
+            try {
+                var res = yield cb => r
+                                .get(config.HTTP + '/admin/git/' + repo)
+                                .end(cb);
+                var body = res.body;
+                if (body.data) {
+                    var data = body.data[0];
+                    deployGit(data);
                 }
             } catch (e) {
                 if (!(e && e.response && e.response.status === 404)) {
