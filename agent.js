@@ -17,7 +17,7 @@ function md5(s) {
 }
 
 
-function taskRunner(doc) {
+function taskRunner(doc, flag) {
     var content = '';
     switch (doc.type) {
         case 'json':
@@ -35,16 +35,22 @@ function taskRunner(doc) {
         origin = origin.toString();
     } catch (e) {
     }
-    if (md5(origin) === md5(content)) {
+    if (md5(origin) === md5(content) && !flag) {
         return;
     }
     fs.writeFileSync(doc.path, content);
+    var path = doc.path.split('/');
+    path.pop();
+    path = path.join('/')
     try {
-        for (var command of doc.commands) {
-            shell.exec(command);
+        for (var command of doc.commands || []) {
+            logger.info(path)
+            logger.info(command)
+            shell.cd(path).exec(command);
         }
     } catch (e) {
         logger.error(e);
+        e.stack && logger.error(e.stack);
         return;
     }
     logger.info('Config:' + doc.name + ' updated');
@@ -119,7 +125,6 @@ module.exports = (config) => {
                 }
             }
         }
-
         client.on('error', e => {
             logger.error(e);
             throw e;
@@ -129,7 +134,7 @@ module.exports = (config) => {
         });
         client.on('change', doc => {
             logger.info('Received config:' + doc.name);
-            taskRunner(doc)
+            taskRunner(doc, true)
         });
         client.on('deploy', git => {
             logger.info('Received deploy:' + git.name);
@@ -137,6 +142,7 @@ module.exports = (config) => {
         })
 
         client.init(config.URL, config.WATCH, config.DEPLOY);
+        logger.info('Ageng alive');
     })
     .catch(err => {
         logger.error(err);
