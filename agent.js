@@ -10,6 +10,12 @@ var co = require('co');
 var r = require('superagent');
 var tree = require('./tree');
 
+var crypto = require('crypto');
+
+function md5(s) {
+    return crypto.createHash('md5').update(s).digest('hex');
+}
+
 
 function taskRunner(doc) {
     var content = '';
@@ -23,6 +29,15 @@ function taskRunner(doc) {
         default:
             return;
     }
+    var origin = '';
+    try {
+        origin = fs.readFileSync(doc.path);
+        origin = origin.toString();
+    } catch (e) {
+    }
+    if (md5(origin) === md5(content)) {
+        return;
+    }
     fs.writeFileSync(doc.path, content);
     try {
         for (var command of doc.commands) {
@@ -30,10 +45,13 @@ function taskRunner(doc) {
         }
     } catch (e) {
         logger.error(e);
+        return;
     }
+    logger.info('Config:' + doc.name + ' updated');
 }
 
 function deployGit(git) {
+
     var path = git.path + '/' + git.repo.split('/')[1];
     if (shell.cd(path).stderr) {
         shell.exec(`mkdir -p ${path}`);
@@ -61,6 +79,7 @@ function deployGit(git) {
             curr.exec(command);
         }
     }
+    logger.info('Git:' + git.name + ' deployed');
 }
 
 module.exports = (config) => {
@@ -108,11 +127,11 @@ module.exports = (config) => {
             logger.info('Connected');
         });
         client.on('change', doc => {
-            logger.info('Received ' + doc.name);
+            logger.info('Received config:' + doc.name);
             taskRunner(doc)
         });
         client.on('deploy', git => {
-            logger.info('Deploy ' + git.name);
+            logger.info('Received deploy:' + git.name);
             deployGit(git);
         })
 
