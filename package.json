@@ -1,7 +1,6 @@
 {
   "name": "asa-config-agent",
-  "version": "0.0.7",
-  "description": "",
+  "version": "0.0.8",
   "bin": {
     "config-agent": "./index.js"
   },
@@ -9,7 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "co": "^4.6.0",
     "commander": "^2.9.0",
@@ -19,5 +18,19 @@
     "socket.io-client": "^1.4.6",
     "superagent": "^2.0.0",
     "xml": "^1.0.1"
-  }
+  },
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/advanced-server-architecture/config-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/advanced-server-architecture/config-agent/issues"
+  },
+  "homepage": "https://github.com/advanced-server-architecture/config-agent#readme",
+  "description": ""
 }

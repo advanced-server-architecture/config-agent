@@ -38,6 +38,9 @@ function taskRunner(doc, flag) {
     if (md5(origin) === md5(content) && !flag) {
         return;
     }
+    var t = doc.path.split('/');
+    t.pop();
+    shell.exec('mkdir -p ' + t.join('/'));
     fs.writeFileSync(doc.path, content);
     var path = doc.path.split('/');
     path.pop();
@@ -67,6 +70,7 @@ function deployGit(git) {
     if (!currCommit) {
         shell
             .cd(git.path)
+            .exec('rm ./* -rf')
             .exec(`git clone https://${git.username}:${git.accessToken}@github.com/${git.repo} ./`);
         currCommit = shell
             .cd(git.path)
