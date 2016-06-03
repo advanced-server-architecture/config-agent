@@ -58,28 +58,27 @@ function taskRunner(doc, flag) {
 
 function deployGit(git) {
     if (!git) return;
-    var path = git.path + '/' + git.repo.split('/')[1];
-    if (shell.cd(path).stderr) {
-        shell.exec(`mkdir -p ${path}`);
+    if (shell.cd(git.path).stderr) {
+        shell.exec(`mkdir -p ${git.path}`);
     }
     var currCommit = shell
-        .cd(path)
+        .cd(git.path)
         .exec('git rev-parse HEAD').stdout;
     if (!currCommit) {
         shell
             .cd(git.path)
-            .exec(`git clone https://${git.username}:${git.accessToken}@github.com/${git.repo}`);
+            .exec(`git clone https://${git.username}:${git.accessToken}@github.com/${git.repo} ./`);
         currCommit = shell
-            .cd(git.path + '/' + git.repo)
+            .cd(git.path)
             .exec('git rev-parse HEAD').stdout;
     }
     if (currCommit !== git.deployedCommit) {
         shell
-            .cd(path)
+            .cd(git.path)
             .exec(`git checkout ${git.deployedCommit}`);
     }
     if (git.command) {
-        var curr = shell.cd(path);
+        var curr = shell.cd(git.path);
         var commands = git.command.split('\n');
         for (var command of commands) {
             curr.exec(command);
