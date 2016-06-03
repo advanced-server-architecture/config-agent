@@ -75,6 +75,7 @@ function deployGit(git) {
     if (currCommit !== git.deployedCommit) {
         shell
             .cd(git.path)
+            .exec('git fetch')
             .exec(`git checkout ${git.deployedCommit}`);
     }
     if (git.command) {
