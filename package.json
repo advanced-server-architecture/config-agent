@@ -1,6 +1,6 @@
 {
   "name": "asa-config-agent",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "bin": {
     "config-agent": "./index.js"
   },

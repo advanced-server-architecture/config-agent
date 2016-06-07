@@ -1,4 +1,4 @@
-exports.Flatten = function Flatten(tree, index) {
+function Flatten(tree, index) {
     index = index || 0;
     var result = [];
     var currNode = {
@@ -18,7 +18,7 @@ exports.Flatten = function Flatten(tree, index) {
     return result;
 };
 
-exports.Unflatten = function Unflatten(list, index) {
+function Unflatten(list, index) {
     index = index || 0;
     var node = {};
     if (!list[index]) {
@@ -35,7 +35,7 @@ exports.Unflatten = function Unflatten(list, index) {
     return node;
 };
 
-var _toJson = (tree) => {
+function _toJson(tree) {
     switch (tree.valueType) {
         case 'object': {
             var result = {};
@@ -56,7 +56,13 @@ var _toJson = (tree) => {
     }
 };
 
-exports.toJson = (list) => {
+function toJson(list) {
     var tree = Unflatten(list);
     return _toJson(tree);
 }
+
+module.exports = {
+    Unflatten,
+    Flatten,
+    toJson
+};
