@@ -1,155 +1,155 @@
-var shell = require('shelljs');
-var client = require('./client');
-var logger = require('./logger')();
+'use strict'
 
-var fs = require('fs');
-var parseIni = require('ini').stringify;
-var parseXml = require('xml');
-var execSync = require('child_process').execSync;
-var co = require('co');
-var r = require('superagent');
-var tree = require('./tree');
+const commandInfo = require('./commands/info');
+const commandGit = require('./commands/git');
 
-var crypto = require('crypto');
+const shell = require('shelljs');
+const os = require('os');
+const io = require('socket.io-client');
+const fs = require('fs');
+const guard = require('./guard');
+const debug = require('./debug');
 
-function md5(s) {
-    return crypto.createHash('md5').update(s).digest('hex');
+
+const co = require('co');
+const r = require('superagent');
+
+const sleep = (ms) => new Promise((resolve, reject) => {
+    setTimeout(resolve, ms);
+});
+
+
+function exitHandler(exit) {
+    let list = guard.list();
+
+    for (const child of list) {
+        child.process.kill('SIGINT');
+    }
+
+    if (exit) {
+        process.exit();
+    }
 }
 
+module.exports = (url, name, path) => {
 
-function taskRunner(doc, flag) {
-    var content = '';
-    switch (doc.type) {
-        case 'json':
-            content = JSON.stringify(tree.Unflatten(doc.json), false, 2);
-            break;
-        case 'text':
-            content = doc.text;
-            break;
-        default:
-            return;
-    }
-    var origin = '';
+    const HOME = process.env.HOME;
     try {
-        origin = fs.readFileSync(doc.path);
-        origin = origin.toString();
-    } catch (e) {
-    }
-    if (md5(origin) === md5(content) && !flag) {
-        return;
-    }
-    var t = doc.path.split('/');
-    t.pop();
-    shell.exec('mkdir -p ' + t.join('/'));
-    fs.writeFileSync(doc.path, content);
-    var path = doc.path.split('/');
-    path.pop();
-    path = path.join('/')
-    try {
-        for (var command of doc.commands || []) {
-            logger.info(path)
-            logger.info(command)
-            shell.cd(path).exec(command);
-        }
-    } catch (e) {
-        logger.error(e);
-        e.stack && logger.error(e.stack);
-        return;
-    ``}
-    logger.info('Config:' + doc.name + ' updated');
-}
+        fs.mkdirSync(`${HOME}/.config-agent`);
+    } catch(e) {
 
-function deployGit(git) {
-    if (!git) return;
-    if (shell.cd(git.path).stderr) {
-        shell.exec(`mkdir -p ${git.path}`);
     }
-    var currCommit = shell
-        .cd(git.path)
-        .exec('git rev-parse HEAD').stdout;
-    if (!currCommit) {
-        shell
-            .cd(git.path)
-            .exec('rm ./* -rf')
-            .exec(`git clone https://${git.username}:${git.accessToken}@github.com/${git.repo} ./`);
-        currCommit = shell
-            .cd(git.path)
-            .exec('git rev-parse HEAD').stdout;
-    }
-    if (currCommit !== git.deployedCommit) {
-        shell
-            .cd(git.path)
-            .exec('git fetch')
-            .exec(`git checkout ${git.deployedCommit}`);
-    }
-    if (git.command) {
-        var curr = shell.cd(git.path);
-        var commands = git.command.split('\n');
-        for (var command of commands) {
-            curr.exec(command);
-        }
-    }
-    logger.info('Git:' + git.name + ' deployed');
-}
 
-module.exports = (config) => {
-    logger = require('./logger')(config.LOGFILE);
+    process.env.CONFIG_HOME = `${HOME}/.config-agent`;
+
     co(function* () {
-        var docNames = config.WATCH
-        for (var doc of docNames) {
+        guard.recover();
+        process.on('exit', exitHandler);
+        process.on('SIGINT', exitHandler.bind(null, true));
+
+        let _count = 0;
+        let websocketPort;
+
+        while (_count < 10) {
             try {
-                var res = yield cb => r
-                                .get(config.HTTP + '/admin/filename' + doc)
-                                .end(cb);
-                var body = res.body;
-                if (body.data) {
-                    var data = body.data[0];
-                    taskRunner(data);
-                }
+                const websocket = yield cb => r.get(url + ':3010/websocket').end(cb);
+                websocketPort = websocket.text;
+                break;
             } catch (e) {
-                if (!(e && e.response && e.response.status === 404)) {
-                    throw e;
-                }
+                _count++;
+                yield sleep(1000)
             }
         }
-        var repos = config.DEPLOY; 
-        for (var repo of repos) {
-            try {
-                var res = yield cb => r
-                                .get(config.HTTP + '/admin/git/' + repo)
-                                .end(cb);
-                var body = res.body;
-                if (body.data) {
-                    var data = body.data[0];
-                    deployGit(data);
-                }
-            } catch (e) {
-                if (!(e && e.response && e.response.status === 404)) {
-                    throw e;
+
+        if (!websocketPort) {
+            throw new Error('Cannot connect to server');
+        }
+
+
+        let mac = '';
+
+
+        try {
+            mac = fs.readFileSync(`${process.env.CONFIG_HOME}/.mac`).toString();
+        } catch (e) {
+
+        }
+
+
+        if (mac === '') {
+            const interfaces = os.networkInterfaces();
+            for (const key in interfaces) {
+                const i = interfaces[key];
+                for (const net of i) {
+                    if (net.mac !== '00:00:00:00:00:00') {
+                        mac = net.mac;
+                        break; 
+                    }
                 }
             }
+            if (mac === '') {
+                throw new Error('Mac address not found');
+            }
+            fs.writeFileSync(`${process.env.CONFIG_HOME}/.mac`, mac);
         }
+
+        mac = mac.split(':').join('');
+
+
+
+
+        const client = io('ws://' + url + ':' + websocketPort);
+
         client.on('error', e => {
-            logger.error(e);
             throw e;
         });
-        client.on('connected', e => {
-            logger.info('Connected');
-        });
-        client.on('change', doc => {
-            logger.info('Received config:' + doc.name);
-            taskRunner(doc, true)
-        });
-        client.on('deploy', git => {
-            logger.info('Received deploy:' + git.name);
-            deployGit(git);
-        })
 
-        client.init(config.URL, config.WATCH, config.DEPLOY);
+        client.on('connect', e => {
+            client.emit('online', {
+                uid: mac,
+                name
+            });
+        });
+
+        const log = (level, message) => client.emit('log', level, message);
+
+        const logger = {
+            info(message) {
+                log('info', message);
+            },
+            debug(message) {
+                log('info', message);
+            },
+            error(message) {
+                log('error', message);
+            }
+        };
+
+        client.on('command', (command, params) => {
+            logger.info(`Start executing ${command}, ${JSON.stringify(params || {})}`);
+            switch (command) {
+                case 'deploy':
+                    console.log(params);
+                    commandGit(params, {
+                        path
+                    });
+                    break;
+            }
+        });
+
+        client.on('get', (id, uid, type) => {
+            commandInfo(type, {path }, (err, res) => {
+                client.emit('return', id, res);
+            });
+        });
+
+
         logger.info('Ageng alive');
     })
     .catch(err => {
-        logger.error(err);
+        //logger.error(err);
+        debug(err.message);
+        debug(err.stack);
         process.exit(1);
     })
 }
