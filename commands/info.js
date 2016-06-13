@@ -7,8 +7,9 @@ const fs = require('fs');
 const shell = require('shelljs');
 const guard = require('../guard');
 const sys = require('../sys');
+const logger = require('../logger');
 
-module.exports = function(type, config, cb) {
+module.exports = function(type, config, params, cb) {
     switch (type) {
         case 'memory':
             cb(null, {
@@ -49,19 +50,61 @@ module.exports = function(type, config, cb) {
             cb(null, result) ;
             break;
         }
+        case 'start': 
+            guard.start(params);
+            cb(null, 'OK');
+            break;
+        case 'stop':
+            guard.stop(params.pid);
+            cb(null, 'OK');
+            break;
+        case 'kill':
+            guard.stop(params.pid);
+            cb(null, 'OK');
+            break;
+        case 'restart':
+            guard.restart(params.name);
+            cb(null, 'OK');
+            break;
         case 'list': {
-            let result = guard.list().map(child => ({
-                pid: child.pid,
-                createdAt: child.createdAt,
-                updatedAt: child.updatedAt,
-                restartCount: child.restartCount,
-                status: child.status,
-                name: child.name,
-                location: child.location,
-                opts: child.opts
-            }));
+            let result = [];
+            for (const child of guard.list()) {
+                let path = child.location;
+                let t = child.location.split('/');
+                if (t[t.length - 1].split('.').length > 1) {
+                    t.pop();
+                    path = t.join('/');
+                }
+                let isGit = true;
+                try {
+                    fs.statSync(path + '/.git');
+                } catch(e) {
+                    isGit = false;
+                }
+                const commit = isGit 
+                            ? 
+                            shell
+                                .cd(path)
+                                .exec('git rev-parse HEAD').stdout.trim()
+                            :
+                            '';
+                result.push({
+                    pid: child.pid,
+                    createdAt: child.createdAt,
+                    updatedAt: child.updatedAt,
+                    restartCount: child.restartCount,
+                    status: child.status,
+                    name: child.name,
+                    location: child.location,
+                    opts: child.opts,
+                    commit
+                });
+            }
             cb(null, result);
         }
+            break;
+        case 'log': 
+            cb(null, logger.get(params.size, params.page));
             break;
     }
 };

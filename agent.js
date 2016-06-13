@@ -9,6 +9,8 @@ const io = require('socket.io-client');
 const fs = require('fs');
 const guard = require('./guard');
 const debug = require('./debug');
+const logger = require('./logger');
+const moment = require('moment');
 
 
 const co = require('co');
@@ -19,13 +21,14 @@ const sleep = (ms) => new Promise((resolve, reject) => {
 });
 
 
-function exitHandler(exit) {
+function onAgentExit(exit) {
     let list = guard.list();
-
     for (const child of list) {
-        child.process.kill('SIGINT');
+        if (child.status === 0) {
+            child.process.kill('SIGINT');
+        }
     }
-
+    logger.save(`${process.env.CONFIG_HOME}/${moment().format('YYYY-MM-DD')}.log`);
     if (exit) {
         process.exit();
     }
@@ -43,9 +46,9 @@ module.exports = (url, name, path) => {
     process.env.CONFIG_HOME = `${HOME}/.config-agent`;
 
     co(function* () {
-        guard.recover();
-        process.on('exit', exitHandler);
-        process.on('SIGINT', exitHandler.bind(null, true));
+        guard.restore();
+        process.on('exit', onAgentExit);
+        process.on('SIGINT', onAgentExit.bind(null, true));
 
         let _count = 0;
         let websocketPort;
@@ -100,54 +103,64 @@ module.exports = (url, name, path) => {
 
         const client = io('ws://' + url + ':' + websocketPort);
 
-        client.on('error', e => {
-            throw e;
+        client.on('connect_error', e => {
+            console.log(e);
         });
 
+        client.on('connect_timeout', e => {
+            console.log(e);
+        })
+
+        client.on('disconnect', e => {
+            console.log('disconnect', e)
+        })
+
         client.on('connect', e => {
+            console.log('connected')
             client.emit('online', {
                 uid: mac,
                 name
             });
         });
 
-        const log = (level, message) => client.emit('log', level, message);
-
-        const logger = {
-            info(message) {
-                log('info', message);
-            },
-            debug(message) {
-                log('info', message);
-            },
-            error(message) {
-                log('error', message);
-            }
-        };
 
         client.on('command', (command, params) => {
             logger.info(`Start executing ${command}, ${JSON.stringify(params || {})}`);
             switch (command) {
-                case 'deploy':
-                    console.log(params);
-                    commandGit(params, {
+                case 'init':
+                    commandGit.init(params, {
                         path
+                    }, (err) => {
+                        if (err) {
+                            logger.error(err);
+                        } /*else {
+                            client.emit('deployed', params.git._id);
+                        }*/
+                    });
+                    break;
+                case 'pull':
+                    commandGit.pull(params, {
+                        path
+                    }, (err) => {
+                        if (err) {
+                            logger.error(err);
+                        } /*else {
+                            client.emit('deployed', params.git._id);
+                        }*/
                     });
                     break;
             }
         });
 
-        client.on('get', (id, uid, type) => {
-            commandInfo(type, {path }, (err, res) => {
+        client.on('get', (id, uid, type, params) => {
+            commandInfo(type, {path }, params, (err, res) => {
                 client.emit('return', id, res);
             });
         });
-
-
         logger.info('Ageng alive');
     })
     .catch(err => {
-        //logger.error(err);
+        logger.error(err);
         debug(err.message);
         debug(err.stack);
         process.exit(1);

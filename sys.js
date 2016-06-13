@@ -1,5 +1,4 @@
 'use strict';
-
 const child_process = require('child_process');
 const os = require('os');
 
@@ -14,7 +13,7 @@ const osxCpuSummaryRegex = '(?P<user>[0-9\\.]+)\\% user, ' +
 const osxCpuSummaryIndex = 3;
 const osxProcessRegex = '(?P<pid>[0-9]+)\\-?\\s*' +
                         '(?P<memory>[0-9]+[BKMG])[\\+\\-]?\\s*' +
-                        '(?P<cpu>[0-9]+.[0-9]+)\\s*' +
+                        '[\\+\\-]?(?P<cpu>[0-9]+.[0-9]+)\\s*' +
                         '(?P<command>.+)\\s*' +
                         '(?P<upHour>[0-9]{2})\\:' +
                         '(?P<upMinute>[0-9]{2})' +
