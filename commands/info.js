@@ -8,6 +8,7 @@ const shell = require('shelljs');
 const guard = require('../guard');
 const sys = require('../sys');
 const logger = require('../logger');
+const file = require('./file');
 
 module.exports = function(type, config, params, cb) {
     switch (type) {
@@ -102,6 +103,12 @@ module.exports = function(type, config, params, cb) {
             }
             cb(null, result);
         }
+            break;
+        case 'ls':
+            cb(null, file.list())
+            break;
+        case 'cat':
+            cb(null, file.get(config.path, params.name))
             break;
         case 'log': 
             cb(null, logger.get(params.size, params.page));

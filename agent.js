@@ -2,6 +2,7 @@
 
 const commandInfo = require('./commands/info');
 const commandGit = require('./commands/git');
+const commandFile = require('./commands/file');
 
 const shell = require('shelljs');
 const os = require('os');
@@ -47,6 +48,7 @@ module.exports = (url, name, path) => {
 
     co(function* () {
         guard.restore();
+        commandFile.restore();
         process.on('exit', onAgentExit);
         process.on('SIGINT', onAgentExit.bind(null, true));
 
@@ -147,6 +149,11 @@ module.exports = (url, name, path) => {
                         } /*else {
                             client.emit('deployed', params.git._id);
                         }*/
+                    });
+                    break;
+                case 'pushfile':
+                    commandFile.push(params, {
+                        path
                     });
                     break;
             }

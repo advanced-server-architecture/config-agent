@@ -51,6 +51,9 @@ const out = {
                 }
             }
         } catch (e) {
+            if (e.code !== 'ENOENT') {
+                logger.error(e);
+            }
         }
     },
     add(proc, ignore) {
