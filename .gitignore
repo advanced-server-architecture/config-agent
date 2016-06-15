@@ -2,3 +2,4 @@ node_modules/
 test/
 config.js
 *.log
+repo/
