@@ -60,7 +60,7 @@ module.exports = function(type, config, params, cb) {
             cb(null, 'OK');
             break;
         case 'kill':
-            guard.stop(params.pid);
+            guard.kill(params.name);
             cb(null, 'OK');
             break;
         case 'restart':
