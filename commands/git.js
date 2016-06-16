@@ -99,9 +99,13 @@ module.exports = {
             if (Array.isArray(opts.command)) {
                 for (const command of opts.command) {
                     logger.info(`running ${command}`);
-                    yield cb => shell
-                        .cd(path)
-                        .exec(command, cb)
+                    try {
+                        yield cb => shell
+                            .cd(path)
+                            .exec(command, cb)
+                    } catch (e) {
+                        logger.error(e);
+                    }
                 }
             }
             logger.info(`finished updating ${name}`);
