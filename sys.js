@@ -67,12 +67,12 @@ const linuxProcpsCpuSummaryRegex = '(?P<user>[0-9]+\\.[0-9]+)[\% ]us,\\s+' +
 const linuxProcpsCpuSummaryIndex = 2;
 const linuxProcpsProcessRegex = '(?P<pid>[0-9]+)\\s+' +
                             '[^\\s]+\\s+' +
-                            '[\\-\\d\\w]+\\s+' +
-                            '[\\-\\d\\w]+\\s+' +
-                            '[\\-\\d\\w]+\\s+' +
-                            '[\\-\\d\\w]+\\s+' +
-                            '[\\-\\d\\w]+\\s+' +
-                            '[\\-\\d\\w]\\s+' +
+                            '[\\.\\-\\d\\w]+\\s+' +
+                            '[\\.\\-\\d\\w]+\\s+' +
+                            '[\\.\\-\\d\\w]+\\s+' +
+                            '[\\.\\-\\d\\w]+\\s+' +
+                            '[\\.\\-\\d\\w]+\\s+' +
+                            '[A-Z]\\s+' +
                             '(?P<cpu>[0-9]+\\.[0-9]+)\\s*' +
                             '(?P<memory>[0-9]+\\.[0-9]+)\\s+' +
                             '(?P<upHour>[0-9]+)\\:' +
@@ -246,7 +246,7 @@ function convertBKMG(value, total) {
                     return parseFloat(value) / total;
             }
         case 'linux':
-            return parseFloat(value);
+            return parseFloat(value / 100);
     }
 }
 

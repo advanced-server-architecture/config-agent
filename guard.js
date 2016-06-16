@@ -25,16 +25,22 @@ const out = {
             proc.status = 1;
             proc.pid = -1;
             this.save();
-            proc.process.kill('SIGINT');
+            if (proc.process) {
+                proc.process.kill('SIGINT');
+            }
         }
     },
     kill(name) {
+        try {
         let proc = _.find(list, {name});
         let index = _.findIndex(list, {name});
         if (proc) {
-            proc.process.kill('SIGINT');
+            if (proc.process) {
+                proc.process.kill('SIGINT');
+            }
             list.splice(index, 1);
         }
+    }catch(e) {console.log(e.stack); throw e}
     },
     list() {
         return list;
