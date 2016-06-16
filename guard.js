@@ -31,16 +31,15 @@ const out = {
         }
     },
     kill(name) {
-        try {
         let proc = _.find(list, {name});
         let index = _.findIndex(list, {name});
         if (proc) {
             if (proc.process) {
                 proc.process.kill('SIGINT');
             }
+            shell.exec(`rm -rf ${proc.location}`);
             list.splice(index, 1);
         }
-    }catch(e) {console.log(e.stack); throw e}
     },
     list() {
         return list;
