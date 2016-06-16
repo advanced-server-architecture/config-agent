@@ -1,5 +1,6 @@
 'use strict';
 const child_process = require('child_process');
+const shell = require('shelljs');
 const os = require('os');
 
 const osxProcessSummaryRegex ='(?P<total>[0-9]+) total, ' +
@@ -25,18 +26,17 @@ const osxTopArgs = ['-s', '1','-stats', 'pid,mem,cpu,command,time']
 const osxHeader = 'Processes'
 
 
-
-const linuxProcessSummaryRegex = '(?P<total>[0-9]+) total,\\s+' +
+const linuxProcpsNgProcessSummaryRegex = '(?P<total>[0-9]+) total,\\s+' +
                                 '(?P<running>[0-9]+) running,\\s+' +
                                 '(?P<sleeping>[0-9]+) sleeping,\\s+' +
                                 '(?P<stopped>[0-9]+) stopped';
-const linuxProcessSummaryIndex = 1;
-const linuxCpuSummaryRegex = '(?P<user>[0-9]+\\.[0-9]+) us,\\s+' +
+const linuxProcpsNgProcessSummaryIndex = 1;
+const linuxProcpsNgCpuSummaryRegex = '(?P<user>[0-9]+\\.[0-9]+) us,\\s+' +
                             '(?P<sys>[0-9]+\\.[0-9]+) sy,\\s+' +
                             '(?P<ni>[0-9]+\\.[0-9]+) ni,\\s+' +
                             '(?P<idle>[0-9]+\\.[0-9]+) id';
-const linuxCpuSummaryIndex = 2;
-const linuxProcessRegex = '(?P<pid>[0-9]+)\\s+' +
+const linuxProcpsNgCpuSummaryIndex = 2;
+const linuxProcpsNgProcessRegex = '(?P<pid>[0-9]+)\\s+' +
                             '[^\\s]+' +
                             '[0-9]+\\s+' +
                             '[0-9]+\\s+' +
@@ -49,10 +49,41 @@ const linuxProcessRegex = '(?P<pid>[0-9]+)\\s+' +
                             '(?P<upUnit>[\\.\\:])' +
                             '(?P<upSecond>[0-9]{2})\\s+' +
                             '(?P<command>.+)';
-const linuxProcessStartIndex = 7;
-const linuxProcessEndOffset = 0;
-const linuxHeader = 'top ';
-const linuxTopArgs = ['-b', '-d', '1'];
+const linuxProcpsNgProcessStartIndex = 7;
+const linuxProcpsNgProcessEndOffset = 0;
+const linuxProcpsNgHeader = 'top ';
+const linuxProcpsNgTopArgs = ['-b', '-d', '1'];
+
+
+const linuxProcpsProcessSummaryRegex = '(?P<total>[0-9]+) total,\\s+' +
+                                '(?P<running>[0-9]+) running,\\s+' +
+                                '(?P<sleeping>[0-9]+) sleeping,\\s+' +
+                                '(?P<stopped>[0-9]+) stopped';
+const linuxProcpsProcessSummaryIndex = 1;
+const linuxProcpsCpuSummaryRegex = '(?P<user>[0-9]+\\.[0-9]+)[\% ]us,\\s+' +
+                            '(?P<sys>[0-9]+\\.[0-9]+)[\% ]sy,\\s+' +
+                            '(?P<ni>[0-9]+\\.[0-9]+)[\% ]ni,\\s+' +
+                            '(?P<idle>[0-9]+\\.[0-9]+)[\% ]id';
+const linuxProcpsCpuSummaryIndex = 2;
+const linuxProcpsProcessRegex = '(?P<pid>[0-9]+)\\s+' +
+                            '[^\\s]+\\s+' +
+                            '[\\-\\d\\w]+\\s+' +
+                            '[\\-\\d\\w]+\\s+' +
+                            '[\\-\\d\\w]+\\s+' +
+                            '[\\-\\d\\w]+\\s+' +
+                            '[\\-\\d\\w]+\\s+' +
+                            '[\\-\\d\\w]\\s+' +
+                            '(?P<cpu>[0-9]+\\.[0-9]+)\\s+' +
+                            '(?P<memory>[0-9]+\\.[0-9]+)\\s+' +
+                            '(?P<upHour>[0-9]+)\\:' +
+                            '(?P<upMinute>[0-9]{2})' +
+                            '(?P<upUnit>[\\.\\:])' +
+                            '(?P<upSecond>[0-9]{2})\\s+' +
+                            '(?P<command>.+)';
+const linuxProcpsProcessStartIndex = 7;
+const linuxProcpsProcessEndOffset = 0;
+const linuxProcpsHeader = 'top ';
+const linuxProcpsTopArgs = ['-b', '-d', '1'];
 
 
 let processSummaryRegex;
@@ -77,17 +108,34 @@ switch (os.platform()) {
         topArgs = osxTopArgs;
         header = osxHeader;
         break;
-    case 'linux':
-        processSummaryRegex = linuxProcessSummaryRegex;
-        processSummaryIndex = linuxProcessSummaryIndex;
-        cpuSummaryRegex = linuxCpuSummaryRegex;
-        cpuSummaryIndex = linuxCpuSummaryIndex;
-        processStartIndex = linuxProcessStartIndex;
-        processEndOffset = linuxProcessEndOffset;
-        processRegex = linuxProcessRegex;
-        topArgs = linuxTopArgs;
-        header = linuxHeader;
+    case 'linux': {
+        const ifNg = !!shell
+                .exec('top -v')
+                .stdout
+                .match(/procps(-ng)?/)[1];
+        if (ifNg) {
+            processSummaryRegex = linuxProcpsNgProcessSummaryRegex;
+            processSummaryIndex = linuxProcpsNgProcessSummaryIndex;
+            cpuSummaryRegex = linuxProcpsNgCpuSummaryRegex;
+            cpuSummaryIndex = linuxProcpsNgCpuSummaryIndex;
+            processStartIndex = linuxProcpsNgProcessStartIndex;
+            processEndOffset = linuxProcpsNgProcessEndOffset;
+            processRegex = linuxProcpsNgProcessRegex;
+            topArgs = linuxProcpsNgTopArgs;
+            header = linuxProcpsNgHeader;
+        } else {
+            processSummaryRegex = linuxProcpsProcessSummaryRegex;
+            processSummaryIndex = linuxProcpsProcessSummaryIndex;
+            cpuSummaryRegex = linuxProcpsCpuSummaryRegex;
+            cpuSummaryIndex = linuxProcpsCpuSummaryIndex;
+            processStartIndex = linuxProcpsProcessStartIndex;
+            processEndOffset = linuxProcpsProcessEndOffset;
+            processRegex = linuxProcpsProcessRegex;
+            topArgs = linuxProcpsTopArgs;
+            header = linuxProcpsHeader;
+        }
         break;
+    }
 }
 
 
