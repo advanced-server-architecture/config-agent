@@ -1,127 +1,109 @@
 'use strict';
 
-const shell = require('shelljs');
+const exec = require('util/exec');
 const co = require('co');
-const guard = require('../guard');
-const logger = require('../logger');
+const guard = require('core/guard');
+const logger = require('util/logger');
 const fs = require('fs');
 const _ = require('lodash');
 
 module.exports = {
-    init(params, config, cb) {
-        co(function* () {
-            const project = params.project 
-            let opts = params.opts;
-            opts._id = project._id;
-            opts.repo = project.repo;
-            opts.accessToken = project.accessToken;
-            opts.main = project.main;
-            opts.username = project.username;
-            let flag = true;
-            let path = config.path + '/' + opts.name;
-            try {
-                fs.statSync(path);
-            } catch (e) {
-                flag = false;
-            }
-            if (flag) {
-                throw 'folder exists';
-            }
-            logger.info(shell
-                .exec(`mkdir -p ${path}`).stdout);
-            try {
-                logger.info(`cloning repo ${project.repo}`);
-                let stdout = yield cb => shell
-                    .cd(path)
-                    .exec(`git clone ` +
-                        `https://${opts.username}:${opts.accessToken}` + 
-                        `@github.com/${opts.repo} ./`, cb);
-                for (const o of stdout) {
-                    logger.info(o);
-                }
-            } catch (e) {
-                throw 'unable to clone git'
-            }
-            guard.add({
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                restartCount: 0,
-                location: path,
-                name: opts.name,
-                status: 1,
-                opts: opts,
-                pid: -1
-            });
-            logger.info('done');
-        }) 
-        .then(() => {
-            if (cb) {
-                cb(null);
-            }
-        })
-        .catch(e => {
-            if (cb) {
-                cb(e) 
-            } else {
-                throw e;
-            }
-        })
+    init: function* (project, opts, projectPath, cb) {
+        let flag = true;
+        let stdout = '';
+        const path = projectPath+ '/' + opts.name;
+        try {
+            fs.statSync(path);
+        } catch (e) {
+            flag = false;
+        }
+        if (flag) {
+            cb('folder exists');
+            throw 'folder exists';
+        }
+        logger.info(
+            yield exec
+                .run(`mkdir -p ${path}`));
+        try {
+            logger.info(`cloning repo ${project.repo}`);
+            cb(null, 'cloning');
+            console.log(path)
+            logger.info(
+                yield exec
+                    .run(`git clone ` +
+                        `https://${project.username}:` +
+                        `${project.accessToken}` +
+                        `@github.com/${project.repo} ./`, path));
+        } catch (e) {
+            logger.error(e);
+            yield exec.run(`rm -rf ${path}`);
+            throw 'unable to clone git';
+        }
+        const currCommit = (yield exec
+                .run('git rev-parse HEAD', path)).trim('\n');
+        const name = opts.name;
+        delete opts.name;
+
+        guard.add({
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            restartCount: 0,
+            location: path,
+            name: name,
+            status: 'stopped',
+            _id: project._id,
+            git: {
+                accessToken: project.accessToken,
+                repo: project.repo,
+                username: project.username,
+                commit: currCommit 
+            },
+            main: project.main,
+            opts: opts,
+            pid: -1
+        });
+        logger.info('done');
     },
-    pull(params, config, cb) {
-        co(function* () {
-            const name = params.name;
-            logger.info(`pulling for ${name}`);
-            const commit = params.commit;
-            const path = config.path + '/' + name;
-            try {
-                fs.statSync(path + '/.git');
-            } catch(e) {
-                throw `${path} is not a git repo`;
-            }
-            const currCommit = shell
-                    .cd(path)
-                    .exec('git rev-parse HEAD').stdout.trim('\n');
-            logger.info(`current commit is ${currCommit}`);
-            
-            if (currCommit !== commit) {
-                logger.info(`fetching ${commit}`);
-               yield cb => shell
-                    .cd(path)
-                    .exec('git fetch', cb)
-                yield cb => shell
-                    .cd(path)
-                    .exec(`git checkout ${commit}`, cb); 
-                logger.info(`fetched ${commit}`);
-            }
+    pull: function *(projectId, commit, projectPath, cb) {
+        const proc = _.find(guard.list(), { _id: projectId });
+        if (!proc) {
+            throw `${projectId} is not found`;
+        }
+        const path = projectPath + '/' + proc.name;
+        try {
+            fs.statSync(path + '/.git');
+        } catch(e) {
+            throw `${path} is not a git repo`;
+        }
 
-            const proc = _.find(guard.list(), {name});
-            const opts = proc.opts;
-            if (Array.isArray(opts.command)) {
-                for (const command of opts.command) {
-                    logger.info(`running ${command}`);
-                    try {
-                        yield cb => shell
-                            .cd(path)
-                            .exec(command, cb)
-                    } catch (e) {
-                        logger.error(e);
-                    }
+        const currCommit = (yield exec
+                .run('git rev-parse HEAD', path)).trim('\n');
+
+        logger.info(`current commit is ${currCommit}`);
+
+        cb(null, 'pulling for latest commit');
+        
+        if (currCommit !== commit) {
+            logger.info(`fetching ${commit}`);
+            yield exec
+                .run('git fetch', path)
+            yield exec
+                .run(`git checkout ${commit}`, path); 
+            logger.info(`fetched ${commit}`);
+        }
+
+        const opts = proc.opts;
+        if (Array.isArray(opts.command)) {
+            for (const command of opts.command) {
+                logger.info(`running ${command}`);
+                try {
+                    yield exec 
+                        .run(command, path)
+                } catch (e) {
+                    logger.error(e);
                 }
             }
-            logger.info(`finished updating ${name}`);
-
-        }) 
-        .then(() => {
-            if (cb) {
-                cb(null);
-            }
-        })
-        .catch(e => {
-            if (cb) {
-                cb(e) 
-            } else {
-                throw e;
-            }
-        })
+        }
+        logger.info(`finished updating ${proc.name}`);
     }
 }

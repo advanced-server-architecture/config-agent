@@ -1,70 +1,39 @@
 'use strict';
 const fs = require('fs');
-const logger = require('../logger');
+const logger = require('util/logger');
 const _ = require('lodash');
-const shell = require('shelljs');
+const info = require('core/info');
 
 let list = [];
 
 module.exports = {
-    restore() {
-        try {
-            let content = fs.readFileSync(`${process.env.CONFIG_HOME}/.files`);
-            list = JSON.parse(content.toString());
-        } catch (e) {
-            if (e.code !== 'ENOENT') {
-                logger.error(e);
-            }
-        }
+    restore(content) {
+        list = content;
+        logger.info('file restored, ' + list.length);
     },
-    save() {
-        fs.writeFileSync(`${process.env.CONFIG_HOME}/.files`,
-                JSON.stringify(list, 0, 2));
-    },
-    push(params, config, cb) {
-        const file = params.file;
-        const name = params.location;
-        let f =  _.find(list, {name});
+    push: function* (f, location, projectPath) {
 
-        if (f) {
-            f.updatedCount++;
-        } else {
-            f = {
+        let file = _.find(list, { 
+            ref: f.ref,
+            location: location
+        });
+
+        if (!file) {
+            file = {
                 createdAt: Date.now(),
-                updatedCount: 0,
-                name,
-                fileName: file.name
+                ref: f.ref,
+                name: f.name,
+                location: location
             };
-            list.push(f);
+            list.push(file);
         }
+        file.updatedAt = Date.now(); 
+        file._id = f._id;
+        file.content = f.content;
 
-        f.updatedAt = Date.now();
-        f._id = file._id;
-        f.ref = file.ref;
+        const path = projectPath + '/' + file.location;
 
-        let t = config.path + '/' + name;
-        t = t.split('/');
-        t.pop();
-        let path = t.join('/');
-
-        try {
-            fs.statSync(path);
-        } catch (e) {
-            shell
-                .exec(`mkdir -p ${path}`);
-        }
-
-        fs.writeFileSync(`${config.path}/${name}`, file.content);
-        this.save();
-    },
-    get(path, name) {
-        const f = _.find(list, {name });
-        if (!f) {
-            return '';
-        }
-        return fs.readFileSync(path + '/' + name).toString();
-    },
-    list() {
-        return list;
+        fs.writeFileSync(path, file.content);
+        info.report('file', list);
     }
 }

@@ -8,14 +8,16 @@ const path = require('path');
 
 
 program
-    .option('-u, --url <url>', 'Server url')
-    .option('-n, --name <name>', 'Server alias')
-    .option('-p, --path <path>', 'Local pepo storage')
+    .option('-u, --url <url>', 'Config Server url')
+    .option('-n, --name <name>', 'Agent alias')
+    .option('-r, --root <root>', 'Local pepo storage')
+    .option('-p, --port <port>', 'Config Server port')
     .parse(process.argv);
 
 const url = program.url || '127.0.0.1';
+const port = program.port || 3010;
 const name = program.name || '';
 const pwd = process.env.PWD;
-const _path = path.resolve(pwd, program.path || './');
+const _path = path.resolve(pwd, program.root || './');
 
-agent(url, name, _path);
+agent(url, name, _path, port);

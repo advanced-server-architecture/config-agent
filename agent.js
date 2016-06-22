@@ -1,17 +1,15 @@
 'use strict'
-
-const commandInfo = require('./commands/info');
-const commandGit = require('./commands/git');
-const commandFile = require('./commands/file');
-
-const shell = require('shelljs');
+require('app-module-path/register');
 const os = require('os');
 const io = require('socket.io-client');
 const fs = require('fs');
-const guard = require('./guard');
-const debug = require('./debug');
-const logger = require('./logger');
+const guard = require('core/guard');
+const sys = require('util/sys');
+const logger = require('util/logger');
 const moment = require('moment');
+const commander = require('command');
+const info = require('core/info');
+const file = require('commands/file');
 
 
 const co = require('co');
@@ -21,21 +19,37 @@ const sleep = (ms) => new Promise((resolve, reject) => {
     setTimeout(resolve, ms);
 });
 
-
-function onAgentExit(exit) {
+function *killChildren() {
     let list = guard.list();
     for (const child of list) {
-        if (child.status === 0) {
+        if (child.status === 'running') {
+            const signal = (function* () {
+                yield new Promise((resolve) => {
+                    child.process.on('close', resolve);
+                });
+            })();
             child.process.kill('SIGINT');
+            yield signal;
         }
-    }
-    logger.save(`${process.env.CONFIG_HOME}/${moment().format('YYYY-MM-DD')}.log`);
-    if (exit) {
-        process.exit();
-    }
+    } 
 }
 
-module.exports = (url, name, path) => {
+function onAgentExit(exit) {
+    co(function* () {
+        yield killChildren(); 
+        sys.stop();
+        if (exit) {
+            process.exit();
+        }
+    })
+    .catch(e => {
+        logger.error(e);
+    })
+    
+}
+
+
+module.exports = (url, name, path, port) => {
 
     const HOME = process.env.HOME;
     try {
@@ -47,129 +61,92 @@ module.exports = (url, name, path) => {
     process.env.CONFIG_HOME = `${HOME}/.config-agent`;
 
     co(function* () {
-        guard.restore();
-        commandFile.restore();
         process.on('exit', onAgentExit);
         process.on('SIGINT', onAgentExit.bind(null, true));
 
         let _count = 0;
         let websocketPort;
+        let refreshInterval = 1000;
+
+        let _id = '';
+
+        try {
+            _id = fs.readFileSync(`${process.env.CONFIG_HOME}/._id`).toString();
+        } catch (e) {
+
+        }
 
         while (_count < 10) {
             try {
-                const websocket = yield cb => r.get(url + ':3010/websocket').end(cb);
-                websocketPort = websocket.text;
+                const websocket = yield cb => r
+                            .get(`${url}:${port}/websocket`).end(cb);
+                const body = websocket.body;
+                websocketPort = body.port;
+                refreshInterval = parseInt(body.interval)
                 break;
             } catch (e) {
                 _count++;
-                yield sleep(1000)
+                yield sleep(3000)
             }
         }
+
 
         if (!websocketPort) {
             throw new Error('Cannot connect to server');
         }
 
 
-        let mac = '';
-
-
-        try {
-            mac = fs.readFileSync(`${process.env.CONFIG_HOME}/.mac`).toString();
-        } catch (e) {
-
-        }
-
-
-        if (mac === '') {
-            const interfaces = os.networkInterfaces();
-            for (const key in interfaces) {
-                const i = interfaces[key];
-                for (const net of i) {
-                    if (net.mac !== '00:00:00:00:00:00') {
-                        mac = net.mac;
-                        break; 
-                    }
-                }
-            }
-            if (mac === '') {
-                throw new Error('Mac address not found');
-            }
-            fs.writeFileSync(`${process.env.CONFIG_HOME}/.mac`, mac);
-        }
-
-        mac = mac.split(':').join('');
-
-
-
 
         const client = io('ws://' + url + ':' + websocketPort);
 
-        client.on('connect_error', e => {
-            console.log(e);
-        });
+        while (true) {
+            yield cb => client.on('connect', cb);
+            logger.info('Agent connected');
 
-        client.on('connect_timeout', e => {
-            console.log(e);
-        })
-
-        client.on('disconnect', e => {
-            console.log('disconnect', e)
-        })
-
-        client.on('connect', e => {
-            console.log('connected')
             client.emit('online', {
-                uid: mac,
-                name
+                _id,
+                name,
+                version: require('./package.json').version
             });
-        });
 
-
-        client.on('command', (command, params) => {
-            logger.info(`Start executing ${command}, ${JSON.stringify(params || {})}`);
-            switch (command) {
-                case 'init':
-                    commandGit.init(params, {
-                        path
-                    }, (err) => {
-                        if (err) {
-                            logger.error(err);
-                        } /*else {
-                            client.emit('deployed', params.git._id);
-                        }*/
-                    });
-                    break;
-                case 'pull':
-                    commandGit.pull(params, {
-                        path
-                    }, (err) => {
-                        if (err) {
-                            logger.error(err);
-                        } /*else {
-                            client.emit('deployed', params.git._id);
-                        }*/
-                    });
-                    break;
-                case 'pushfile':
-                    commandFile.push(params, {
-                        path
-                    });
-                    break;
-            }
-        });
-
-        client.on('get', (id, uid, type, params) => {
-            commandInfo(type, {path }, params, (err, res) => {
-                client.emit('return', id, res);
+            commander.init({
+                path
             });
-        });
-        logger.info('Ageng alive');
+
+            _id = yield cb => client.on('_id', cb.bind({}, null));
+            fs.writeFileSync(`${process.env.CONFIG_HOME}/._id`, _id);
+
+            logger.info(`Ageng alive#${_id}`);
+
+
+            client.on('call', (callId, command, argument) => {
+                commander.exec(command, argument, (err, res) => {
+                    if (err) {
+                        logger.error(`#${callId}`, err)
+                        return client.emit('callback', callId, err);
+                    }
+                    logger.info(`#${callId}`, res);
+                    client.emit('callback', callId, null, res);
+                });
+            });
+
+            info.install(client.emit.bind(client, 'updateInfo'));
+            info.updateInfo(refreshInterval);
+
+            const projectResult = yield cb => 
+                r.get(`${url}:${port}/agent/${_id}/project`, cb);
+            guard.restore(projectResult.body.data[0].project);
+            const fileResult = yield cb => 
+                r.get(`${url}:${port}/agent/${_id}/file`, cb);
+            file.restore(fileResult.body.data[0].file);
+            yield cb => client.on('disconnect', cb.bind({}, null));
+            info.uninstall();
+            yield killChildren();
+            logger.info('Agent disconnected');
+        }
     })
     .catch(err => {
         logger.error(err);
-        debug(err.message);
-        debug(err.stack);
         process.exit(1);
     })
 }

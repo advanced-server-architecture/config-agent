@@ -2,17 +2,15 @@
 const log4js = require('log4js');
 const fs = require('fs');
 const moment = require('moment');
+const info = require('core/info');
 
 let logs = [];
 
 function appender(e) {
-    logs.push({
-        time: e.startTime,
-        data: e.data.join(' '),
-        level: {
-            level: e.level.level,
-            levelStr: e.level.levelStr
-        }
+    info.report('log', {
+        date: e.startTime,
+        message: e.data.join(' '),
+        level: e.level.levelStr
     });
 }
 

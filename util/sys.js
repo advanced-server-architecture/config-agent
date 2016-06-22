@@ -303,7 +303,10 @@ function parseData(data) {
         });
     }
 }
-
-module.exports = function() {
+module.exports = Info;
+function Info() {
     return info;
+}
+Info.stop = function() {
+    top.kill('SIGINT');
 }
