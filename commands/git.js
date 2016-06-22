@@ -1,9 +1,9 @@
 'use strict';
 
-const exec = require('util/exec');
+const exec = require('../util/exec');
 const co = require('co');
-const guard = require('core/guard');
-const logger = require('util/logger');
+const guard = require('../core/guard');
+const logger = require('../util/logger');
 const fs = require('fs');
 const _ = require('lodash');
 

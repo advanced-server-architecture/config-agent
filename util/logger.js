@@ -2,7 +2,7 @@
 const log4js = require('log4js');
 const fs = require('fs');
 const moment = require('moment');
-const info = require('core/info');
+const info = require('../core/info');
 
 let logs = [];
 

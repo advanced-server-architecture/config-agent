@@ -1,15 +1,14 @@
 'use strict'
-require('app-module-path/register');
 const os = require('os');
 const io = require('socket.io-client');
 const fs = require('fs');
-const guard = require('core/guard');
-const sys = require('util/sys');
-const logger = require('util/logger');
+const guard = require('./core/guard');
+const sys = require('./util/sys');
+const logger = require('./util/logger');
 const moment = require('moment');
-const commander = require('command');
-const info = require('core/info');
-const file = require('commands/file');
+const commander = require('./command');
+const info = require('./core/info');
+const file = require('./commands/file');
 
 
 const co = require('co');

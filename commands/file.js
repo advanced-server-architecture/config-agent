@@ -1,8 +1,8 @@
 'use strict';
 const fs = require('fs');
-const logger = require('util/logger');
+const logger = require('../util/logger');
 const _ = require('lodash');
-const info = require('core/info');
+const info = require('../core/info');
 
 let list = [];
 

@@ -1,9 +1,9 @@
 'use strict';
-const git = require('commands/git');
-const file = require('commands/file');
-const guard = require('core/guard');
+const git = require('./commands/git');
+const file = require('./commands/file');
+const guard = require('./core/guard');
 const co = require('co');
-const logger = require('util/logger');
+const logger = require('./util/logger');
 
 let path = '';
 

@@ -10,7 +10,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "app-module-path": "^1.1.0",
     "co": "^4.6.0",
     "commander": "^2.9.0",
     "lodash": "^4.13.1",

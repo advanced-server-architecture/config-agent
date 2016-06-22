@@ -1,12 +1,12 @@
 'use strict';
 
 const exec = require('child_process').exec;
-const run = require('util/exec').run;
+const run = require('../util/exec').run;
 const fs = require('fs');
 const path = require('path');
 const _ = require('lodash');
-const logger = require('util/logger');
-const info = require('core/info');
+const logger = require('../util/logger');
+const info = require('../core/info');
 
 let list = [];
 

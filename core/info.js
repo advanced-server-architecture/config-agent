@@ -1,6 +1,6 @@
 'use strict';
 
-const sys = require('util/sys');
+const sys = require('../util/sys');
 
 let id;
 let cb;
