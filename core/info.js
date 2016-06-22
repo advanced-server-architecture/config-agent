@@ -15,6 +15,7 @@ module.exports = {
         for (const c of cache) {
             cb(c.type, c.info);
         }
+        console.log(`${cache.length} reports restored`);
         cache = [];
     },
     uninstall() {
@@ -26,7 +27,7 @@ module.exports = {
             clearInterval(id);
         }
         id = setInterval(() => {
-            cb('machine', sys());
+            this.report('machine', sys());
         }, delay)
     },
     report(type, info) {

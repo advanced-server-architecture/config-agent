@@ -48,6 +48,11 @@ const out = {
     list() {
         return list;
     },
+    updateCommit(_id, commit) {
+        let proc = _.find(list, { _id });
+        proc.git.commit = commit;
+        this.save();
+    },
     add(proc) {
         if (_.find(list, {name: proc.name})) {
             throw (`${proc.name} already exits`);

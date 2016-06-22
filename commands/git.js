@@ -21,13 +21,11 @@ module.exports = {
             cb('folder exists');
             throw 'folder exists';
         }
-        logger.info(
-            yield exec
-                .run(`mkdir -p ${path}`));
+        yield exec
+            .run(`mkdir -p ${path}`);
         try {
             logger.info(`cloning repo ${project.repo}`);
             cb(null, 'cloning');
-            console.log(path)
             logger.info(
                 yield exec
                     .run(`git clone ` +
@@ -105,5 +103,6 @@ module.exports = {
             }
         }
         logger.info(`finished updating ${proc.name}`);
+        guard.updateCommit(projectId, currCommit);
     }
 }

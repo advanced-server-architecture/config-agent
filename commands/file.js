@@ -7,12 +7,22 @@ const info = require('core/info');
 let list = [];
 
 module.exports = {
-    restore(content) {
+    restore(content, projectPath) {
         list = content;
+        let index = 0;
+        for (const i of list) {
+            const path = projectPath + '/'  + i.location;
+            try {
+                fs.statSync(path)
+            } catch(e) {
+                list.splice(index, 1);
+            }
+            index++;
+        }
+        info.report('file', list);
         logger.info('file restored, ' + list.length);
     },
     push: function* (f, location, projectPath) {
-
         let file = _.find(list, { 
             ref: f.ref,
             location: location

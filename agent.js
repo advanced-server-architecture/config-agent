@@ -120,6 +120,7 @@ module.exports = (url, name, path, port) => {
 
 
             client.on('call', (callId, command, argument) => {
+                logger.debug(`#${callId}`, command);
                 commander.exec(command, argument, (err, res) => {
                     if (err) {
                         logger.error(`#${callId}`, err)
@@ -138,7 +139,7 @@ module.exports = (url, name, path, port) => {
             guard.restore(projectResult.body.data[0].project);
             const fileResult = yield cb => 
                 r.get(`${url}:${port}/agent/${_id}/file`, cb);
-            file.restore(fileResult.body.data[0].file);
+            file.restore(fileResult.body.data[0].file, path);
             yield cb => client.on('disconnect', cb.bind({}, null));
             info.uninstall();
             yield killChildren();
@@ -146,7 +147,11 @@ module.exports = (url, name, path, port) => {
         }
     })
     .catch(err => {
-        logger.error(err);
+        if (err.stack) {
+            logger.error(err.stack);
+        } else {
+            logger.error(err);
+        }
         process.exit(1);
     })
 }
